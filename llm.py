@@ -2,9 +2,24 @@ import time
 import os
 from basereal import BaseReal
 from logger import logger
+ 
+from llm.Ollama import Ollama
+ 
 
-def llm_response(message,nerfreal:BaseReal):
+def llm_response(message, nerfreal:BaseReal):
     start = time.perf_counter()
+    llm = Ollama(model="llama2")
+    end = time.perf_counter()
+    logger.info(f"llm Time init: {end - start}s")
+
+    result = llm.chat(message)
+    end = time.perf_counter()
+    logger.info(f"llm Time to last chunk: {end - start}s")
+    
+    # 发送响应文本
+    nerfreal.put_msg_txt(result)
+    return result
+
     from openai import OpenAI
     client = OpenAI(
         # 如果您没有配置环境变量，请在此处用您的API Key进行替换

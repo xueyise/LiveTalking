@@ -41,15 +41,19 @@ pip install -r requirements.txt
 ``` 
 安装常见问题[FAQ](https://livetalking-doc.readthedocs.io/en/latest/faq.html)  
 linux cuda环境搭建可以参考这篇文章 https://zhuanlan.zhihu.com/p/674972886
+生成视频模型
+python genavatar.py --video_path "C:\Users\lzx\Desktop\video.mp4" --avatar_id wav2lip256_avatar2
 
-
+python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar2
 ## 2. Quick Start
 - 下载模型  
-百度云盘<https://pan.baidu.com/s/1yOsQ06-RIDTJd3HFCw4wtA> 密码: ltua  
+夸克云盘<https://pan.quark.cn/s/83a750323ef0>    
 GoogleDriver <https://drive.google.com/drive/folders/1FOC_MD6wdogyyX_7V1d4NDIO7P9NlSAJ?usp=sharing>  
 将wav2lip256.pth拷到本项目的models下, 重命名为wav2lip.pth;  
 将wav2lip256_avatar1.tar.gz解压后整个文件夹拷到本项目的data/avatars下
 - 运行  
+myenv310\Scripts\activate
+python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar2
 python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar1  
 用浏览器打开http://serverip:8010/webrtcapi.html , 先点‘start',播放数字人视频；然后在文本框输入任意文字，提交。数字人播报该段文字  
 <font color=red>服务端需要开放端口 tcp:8010; udp:1-65536 </font>  

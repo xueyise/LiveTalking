@@ -2,6 +2,7 @@ from llm.Qwen import Qwen
 from llm.Gemini import Gemini
 from llm.ChatGPT import ChatGPT
 from llm.VllmGPT import VllmGPT
+from llm.Ollama import Ollama
 
 def test_Qwen(question = "如何应对压力？", mode='offline', model_path="Qwen/Qwen-1_8B-Chat"):
     llm = Qwen(mode, model_path)
@@ -14,23 +15,14 @@ def test_Gemini(question = "如何应对压力？", model_path='gemini-pro', api
     print(answer)
 
 class LLM:
-    def __init__(self, mode='offline'):
-        self.mode = mode
+    def __init__(self):
+        self.model = None
 
-    def init_model(self, model_name, model_path, api_key=None, proxy_url=None):
-        if model_name not in ['Qwen', 'Gemini', 'ChatGPT', 'VllmGPT']:
-            raise ValueError("model_name must be 'ChatGPT', 'VllmGPT', 'Qwen', or 'Gemini'(其他模型还未集成)")
-
-        if model_name == 'Gemini':
-            llm = Gemini(model_path, api_key, proxy_url)
-        elif model_name == 'ChatGPT':
-            llm = ChatGPT(model_path, api_key=api_key)
-        elif model_name == 'Qwen':
-            llm = Qwen(model_path=model_path, api_key=api_key, api_base=proxy_url)
-        elif model_name == 'VllmGPT':
-            llm = VllmGPT()
-        return llm
-
+    def init_model(self, model_name, model_path):
+        if model_name == "Ollama":
+            from .Ollama import Ollama
+            self.model = Ollama(model_path)
+        return self.model
 
     def test_Qwen(self, question="如何应对压力？", model_path="Qwen/Qwen-1_8B-Chat", api_key=None, proxy_url=None):
         llm = Qwen(model_path=model_path, api_key=api_key, api_base=proxy_url)

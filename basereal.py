@@ -35,7 +35,7 @@ import soundfile as sf
 import av
 from fractions import Fraction
 
-from ttsreal import EdgeTTS,VoitsTTS,XTTS,CosyVoiceTTS,FishTTS,TencentTTS
+from ttsreal import EdgeTTS,SovitsTTS,XTTS,CosyVoiceTTS,FishTTS,TencentTTS
 from logger import logger
 
 from tqdm import tqdm
@@ -57,7 +57,7 @@ class BaseReal:
         if opt.tts == "edgetts":
             self.tts = EdgeTTS(opt,self)
         elif opt.tts == "gpt-sovits":
-            self.tts = VoitsTTS(opt,self)
+            self.tts = SovitsTTS(opt,self)
         elif opt.tts == "xtts":
             self.tts = XTTS(opt,self)
         elif opt.tts == "cosyvoice":
@@ -67,7 +67,7 @@ class BaseReal:
         elif opt.tts == "tencent":
             self.tts = TencentTTS(opt,self)
         
-        self.speaking = False
+        self.talking = False
 
         self.recording = False
         self._record_video_pipe = None
@@ -82,8 +82,11 @@ class BaseReal:
         self.custom_opt = {}
         self.__loadcustom()
 
-    def put_msg_txt(self,msg,eventpoint=None):
-        self.tts.put_msg_txt(msg,eventpoint)
+        logger.info("BaseReal instance created")  # 添加日志
+
+    def put_msg_txt(self, msg, eventpoint=None):
+        self.talking = True
+        self.tts.put_msg_txt(msg, eventpoint)
     
     def put_audio_frame(self,audio_chunk,eventpoint=None): #16khz 20ms pcm
         self.asr.put_audio_frame(audio_chunk,eventpoint)
@@ -115,11 +118,12 @@ class BaseReal:
         return stream
 
     def flush_talk(self):
+        self.talking = False
         self.tts.flush_talk()
         self.asr.flush_talk()
 
     def is_speaking(self)->bool:
-        return self.speaking
+        return self.talking
     
     def __loadcustom(self):
         for item in self.opt.customopt:

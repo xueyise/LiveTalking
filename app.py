@@ -36,7 +36,7 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.rtcrtpsender import RTCRtpSender
 from webrtc import HumanPlayer
 from basereal import BaseReal
-from llm import llm_response
+ 
 
 import argparse
 import random
@@ -45,6 +45,7 @@ import asyncio
 import torch
 from typing import Dict
 from logger import logger
+from llm.Ollama import Ollama
 
 
 app = Flask(__name__)
@@ -132,25 +133,65 @@ async def offer(request):
         ),
     )
 
+async def get_models(request):
+    try:
+        logger.info("Fetching models from Ollama")
+        llm = Ollama("")
+        models = llm.get_models()
+        logger.info(f"Found models: {models}")
+        return web.json_response({
+            "code": 0,
+            "data": {
+                "models": models
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting models: {str(e)}")
+        return web.json_response({
+            "code": 500,
+            "error": str(e)
+        }, status=500)
+
 async def human(request):
-    params = await request.json()
+    try:
+        params = await request.json()
+        
+        sessionid = params.get('sessionid', 0)
+        if params.get('interrupt'):
+            nerfreals[sessionid].flush_talk()
 
-    sessionid = params.get('sessionid',0)
-    if params.get('interrupt'):
-        nerfreals[sessionid].flush_talk()
+        if params['type'] == 'echo':
+            nerfreals[sessionid].put_msg_txt(params['text'])
+            return web.json_response({
+                "code": 0,
+                "data": {
+                    "response": "ok"
+                }
+            })
+        elif params['type'] == 'chat':
+            # 获取选择的模型
+            model_name = params.get('model', 'llama2')
+            
+            # 调用Ollama进行对话
+            llm = Ollama(model_name)
+            response = llm.chat(params['text'])
+            
+            # 发送响应文本到数字人
+            nerfreals[sessionid].put_msg_txt(response)
+            
+            return web.json_response({
+                "code": 0,
+                "data": {
+                    "response": response
+                }
+            })
 
-    if params['type']=='echo':
-        nerfreals[sessionid].put_msg_txt(params['text'])
-    elif params['type']=='chat':
-        res=await asyncio.get_event_loop().run_in_executor(None, llm_response, params['text'],nerfreals[sessionid])                         
-        #nerfreals[sessionid].put_msg_txt(res)
-
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"code": 0, "data":"ok"}
-        ),
-    )
+    except Exception as e:
+        logger.error(f"Error in human endpoint: {str(e)}")
+        return web.json_response({
+            "code": 500,
+            "error": str(e)
+        }, status=500)
 
 async def humanaudio(request):
     try:
@@ -446,6 +487,8 @@ if __name__ == '__main__':
 
     #############################################################################
     appasync = web.Application()
+
+    # 首先添加动态路由
     appasync.on_shutdown.append(on_shutdown)
     appasync.router.add_post("/offer", offer)
     appasync.router.add_post("/human", human)
@@ -453,17 +496,20 @@ if __name__ == '__main__':
     appasync.router.add_post("/set_audiotype", set_audiotype)
     appasync.router.add_post("/record", record)
     appasync.router.add_post("/is_speaking", is_speaking)
-    appasync.router.add_static('/',path='web')
+    appasync.router.add_static('/',path='web') 
+    appasync.router.add_get('/models', get_models) 
+ 
 
-    # Configure default CORS settings.
+    # 配置 CORS
     cors = aiohttp_cors.setup(appasync, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-            )
-        })
-    # Configure CORS on all routes.
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+
+    # 为所有路由添加 CORS 配置
     for route in list(appasync.router.routes()):
         cors.add(route)
 
@@ -487,7 +533,6 @@ if __name__ == '__main__':
                     push_url = opt.push_url+str(k)
                 loop.run_until_complete(run(push_url,k))
         loop.run_forever()    
-    #Thread(target=run_server, args=(web.AppRunner(appasync),)).start()
     run_server(web.AppRunner(appasync))
 
     #app.on_shutdown.append(on_shutdown)
@@ -496,5 +541,4 @@ if __name__ == '__main__':
     # print('start websocket server')
     # server = pywsgi.WSGIServer(('0.0.0.0', 8000), app, handler_class=WebSocketHandler)
     # server.serve_forever()
-    
     
