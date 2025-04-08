@@ -88,6 +88,14 @@ class BaseTTS:
     
 
 ###########################################################################################
+    # 查看文档：https://github.com/rany2/edge-tts
+      # 使用 `edge-tts --list-voices` 列出所有可用语音
+#      zh-CN-XiaoxiaoNeural	女声	新闻、小说	温暖、自然
+# zh-CN-XiaoyiNeural	女声	动画、小说	活泼、灵动
+# zh-CN-YunjianNeural	男声	体育、小说	激情、有力
+# zh-CN-YunxiNeural	男声	小说	阳光、年轻
+# zh-CN-YunxiaNeural	男声	动画、儿童内容	可爱、俏皮
+# zh-CN-YunyangNeural	男声	新闻播报	专业、可靠
 class EdgeTTS(BaseTTS):
     def txt_to_audio(self,msg):
         voicename = "zh-CN-YunxiaNeural"

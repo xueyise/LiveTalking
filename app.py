@@ -155,8 +155,8 @@ async def get_models(request):
 async def human(request):
     try:
         params = await request.json()
-        
         sessionid = params.get('sessionid', 0)
+        
         if params.get('interrupt'):
             nerfreals[sessionid].flush_talk()
 
@@ -164,28 +164,32 @@ async def human(request):
             nerfreals[sessionid].put_msg_txt(params['text'])
             return web.json_response({
                 "code": 0,
-                "data": {
-                    "response": "ok"
-                }
+                "data": {"response": "ok"}
             })
         elif params['type'] == 'chat':
-            # 获取选择的模型
-            model_name = params.get('model', 'llama2')
-            
-            # 调用Ollama进行对话
-            llm = Ollama(model_name)
-            response = llm.chat(params['text'])
-            
-            # 发送响应文本到数字人
-            nerfreals[sessionid].put_msg_txt(response)
-            
-            return web.json_response({
-                "code": 0,
-                "data": {
-                    "response": response
-                }
-            })
-
+            try:
+                model_name = params.get('model', 'llama2')
+                llm = Ollama(model_name)
+                response = llm.chat(params['text'])  # 使用普通的chat方法
+                
+                # 清理响应文本
+                response = response.replace('*', '').replace('\r', '').replace('\n\n', '\n').strip()
+                
+                # 发送响应文本到数字人
+                nerfreals[sessionid].put_msg_txt(response)
+                
+                return web.json_response({
+                    "code": 0,
+                    "data": {
+                        "response": response
+                    }
+                })
+            except Exception as e:
+                logger.error(f"Chat error: {str(e)}")
+                return web.json_response({
+                    "code": 1,
+                    "error": "聊天服务暂时不可用，请稍后再试"
+                })
     except Exception as e:
         logger.error(f"Error in human endpoint: {str(e)}")
         return web.json_response({
