@@ -16,7 +16,7 @@
 ###############################################################################
 
 # server.py
-from flask import Flask, render_template,send_from_directory,request, jsonify
+from flask import Flask, render_template,send_from_directory,request, jsonify ,Response
 from flask_sockets import Sockets
 import base64
 import json
@@ -156,6 +156,7 @@ async def human(request):
     try:
         params = await request.json()
         sessionid = params.get('sessionid', 0)
+        logger.info(f"Received request: {params}")
         
         if params.get('interrupt'):
             nerfreals[sessionid].flush_talk()
@@ -170,20 +171,21 @@ async def human(request):
             try:
                 model_name = params.get('model', 'llama2')
                 llm = Ollama(model_name)
-                response = llm.chat(params['text'])  # 使用普通的chat方法
                 
-                # 清理响应文本
-                response = response.replace('*', '').replace('\r', '').replace('\n\n', '\n').strip()
+                # 使用流式聊天方法
+                response_stream = llm.chat_stream(params['text'])
                 
-                # 发送响应文本到数字人
-                nerfreals[sessionid].put_msg_txt(response)
+                # 创建一个StreamResponse而不是Flask的Response
+                resp = web.StreamResponse(status=200, reason='OK', headers={'Content-Type': 'text/plain'})
+                await resp.prepare(request)
+
+                # 将响应流式传输给客户端
+                for chunk in response_stream:
+                    nerfreals[sessionid].put_msg_txt(chunk)
+                    await resp.write(chunk.encode('utf-8'))
                 
-                return web.json_response({
-                    "code": 0,
-                    "data": {
-                        "response": response
-                    }
-                })
+                await resp.write_eof()
+                return resp
             except Exception as e:
                 logger.error(f"Chat error: {str(e)}")
                 return web.json_response({

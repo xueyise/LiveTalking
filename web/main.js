@@ -36,6 +36,9 @@ $(document).ready(function() {
         $('#chat-message').val('');
         
         try {
+            // 先创建一个空的机器人回复消息
+            const botMessageId = addChatMessage('...', 'bot', true);
+            
             const response = await fetch('/human', {
                 method: 'POST',
                 headers: {
@@ -46,53 +49,40 @@ $(document).ready(function() {
                     type: 'chat',
                     interrupt: true,
                     sessionid: parseInt(document.getElementById('sessionid').value),
-                    model: currentModel || 'llama2'
+                    model: currentModel || 'qwen2.5:7b'
                 })
             });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            const data = await response.json();
             
-            if (data.code === 0 && data.data && data.data.response) {
-                const responseText = data.data.response;
-                // 添加数字人的回复
-                addChatMessage(responseText, 'bot');
-                
-                // 按句子分割
-                const sentences = responseText.split(/(?<=[.。!！?？])\s*/);
-                
-                // 第一句话需要中断之前的语音
-                let isFirst = true;
-                
-                for (const sentence of sentences) {
-                    if (sentence.trim()) {
-                        try {
-                            await fetch('/human', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    text: sentence.trim(),
-                                    type: 'echo',
-                                    interrupt: isFirst, // 只在第一句时中断
-                                    sessionid: parseInt(document.getElementById('sessionid').value)
-                                })
-                            });
-                            isFirst = false;
-                            // 添加小延迟，让TTS更自然
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                        } catch (error) {
-                            console.error('TTS error:', error);
-                        }
-                    }
-                }
-            } else {
-                throw new Error(data.error || '发送消息失败');
-            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let result = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                result += chunk;
+                console.log(chunk);
+                // fetch('/human', {
+                //     body: JSON.stringify({
+                //         text: chunk,
+                //         type: 'echo',
+                //         interrupt: true,
+                //         sessionid: parseInt(document.getElementById('sessionid').value),
+                //     }),
+                //     headers: {
+                //         'Content-Type': 'application/json'
+                //     },
+                //     method: 'POST'
+                // });
+                // 更新现有消息而不是创建新消息
+                updateChatMessage(botMessageId, result);
+            } 
+            
         } catch (error) {
             console.error('Error:', error);
             addChatMessage('发送消息失败，请重试', 'system');
@@ -110,14 +100,17 @@ $(document).ready(function() {
         sentmesg();
     });
 
-    // 修改消息显示函数
-    function addChatMessage(message, type = 'user') {
+    // 添加新函数来创建和更新聊天消息
+    function addChatMessage(message, type = 'user', returnId = false) {
         const messagesContainer = $('#chat-messages');
         const messageClass = type === 'user' ? 'user-message' : (type === 'system' ? 'system-message' : 'bot-message');
         const sender = type === 'user' ? '您' : (type === 'system' ? '系统' : '数字人');
         
+        // 生成唯一ID
+        const messageId = 'msg-' + Date.now();
+        
         const messageElement = $(`
-            <div class="message ${messageClass}">
+            <div id="${messageId}" class="message ${messageClass}">
                 <div class="message-content">
                     <span class="message-sender">${sender}</span>
                     <span class="message-text">${message}</span>
@@ -126,6 +119,21 @@ $(document).ready(function() {
         `);
         
         messagesContainer.append(messageElement);
+        messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
+        
+        // 如果需要返回消息ID
+        if (returnId) {
+            return messageId;
+        }
+    }
+
+    // 更新现有消息的内容
+    function updateChatMessage(messageId, content) {
+        // 更新消息文本
+        $(`#${messageId} .message-text`).text(content);
+        
+        // 滚动到底部
+        const messagesContainer = $('#chat-messages');
         messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
     }
 

@@ -366,7 +366,7 @@ class NeRFReal(BaseReal):
             count += 1
             _totalframe += 1
             if count==100:
-                logger.info(f"------actual avg infer fps:{count/totaltime:.4f}")
+                # logger.info(f"------actual avg infer fps:{count/totaltime:.4f}")
                 count=0
                 totaltime=0
             if self.opt.transport=='rtmp':
