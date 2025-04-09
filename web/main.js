@@ -27,9 +27,7 @@ $(document).ready(function() {
         }
     }
 
-    // 修改发送消息的处理函数
-    $('#chat-form').on('submit', async function(e) {
-        e.preventDefault();
+   async function sentmesg(){
         var message = $('#chat-message').val();
         if (!message.trim()) return;
         
@@ -99,6 +97,17 @@ $(document).ready(function() {
             console.error('Error:', error);
             addChatMessage('发送消息失败，请重试', 'system');
         }
+    }
+    $('#chat-message').on('keypress', async function(e) {
+        if (e.which === 13) {  // 13 是 Enter 键的 keyCode
+          e.preventDefault();  // 阻止默认行为（如表单提交）
+          sentmesg();
+        }
+      });
+    // 修改发送消息的处理函数
+    $('#chat-form').on('submit', async function(e) {
+        e.preventDefault();
+        sentmesg();
     });
 
     // 修改消息显示函数
