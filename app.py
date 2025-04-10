@@ -157,35 +157,42 @@ async def human(request):
         params = await request.json()
         sessionid = params.get('sessionid', 0)
         logger.info(f"Received request: {params}")
-        
+
         if params.get('interrupt'):
             nerfreals[sessionid].flush_talk()
-
+        
         if params['type'] == 'echo':
             nerfreals[sessionid].put_msg_txt(params['text'])
             return web.json_response({
                 "code": 0,
-                "data": {"response": "ok"}
+                "data": {"response": "echo-ok"}
             })
         elif params['type'] == 'chat':
             try:
-                model_name = params.get('model', 'llama2')
-                llm = Ollama(model_name)
+                model_name = params.get('model', 'qwen2.5:7b') 
+                response = web.StreamResponse()
+                response.headers['Content-Type'] = 'text/event-stream'
+                response.headers['Cache-Control'] = 'no-cache'
+                await response.prepare(request)
                 
-                # 使用流式聊天方法
-                response_stream = llm.chat_stream(params['text'])
+                # 连接Ollama API
+                ollama_url = "http://192.168.0.64:11434/api/generate"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        ollama_url,
+                        json={"model": model_name, "prompt": params['text'], "stream": True},
+                        timeout=aiohttp.ClientTimeout(total=36000)
+                    ) as ollama_res:
+                        async for chunk in ollama_res.content:
+                            if chunk:
+                                try:
+                                    await response.write(f"data: {chunk.decode()}\n\n".encode())
+                                    await response.drain()
+                                except Exception as e:
+                                    print(f"Error: {str(e)}")
+                                    break
                 
-                # 创建一个StreamResponse而不是Flask的Response
-                resp = web.StreamResponse(status=200, reason='OK', headers={'Content-Type': 'text/plain'})
-                await resp.prepare(request)
-
-                # 将响应流式传输给客户端
-                for chunk in response_stream:
-                    nerfreals[sessionid].put_msg_txt(chunk)
-                    await resp.write(chunk.encode('utf-8'))
-                
-                await resp.write_eof()
-                return resp
+                return response
             except Exception as e:
                 logger.error(f"Chat error: {str(e)}")
                 return web.json_response({

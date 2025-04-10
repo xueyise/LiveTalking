@@ -2,7 +2,7 @@
 import requests
 import json
 import logging
-
+import time
 logger = logging.getLogger(__name__)
 
 class Ollama:
@@ -39,6 +39,11 @@ class Ollama:
 
     def chat_stream(self, prompt):
         try:
+            # 记录请求开始时间
+            start_time = time.time()
+            logger.info(f"Starting Ollama stream request for prompt: {prompt}")
+
+            # 发送流式请求
             response = requests.post(
                 f"{self.api_base}/api/generate",
                 json={
@@ -48,17 +53,37 @@ class Ollama:
                 },
                 stream=True
             )
+            # 检查响应状态码
+            response.raise_for_status()
+
+            # 逐行处理响应
             for line in response.iter_lines():
                 if line:
-                    decoded_line = line.decode('utf-8')
                     try:
+                        decoded_line = line.decode('utf-8')
                         chunk = json.loads(decoded_line)
                         if 'response' in chunk:
+                            # 记录每个数据块的信息
+                            logger.info(f"Received chunk of size {len(chunk['response'])} from Ollama")
                             yield chunk['response']
-                    except json.JSONDecodeError:
-                        pass      
+                    except json.JSONDecodeError as json_error:
+                        # 记录 JSON 解析错误信息
+                        logger.error(f"JSON decoding error in Ollama response: {json_error}, line: {line}")
+                    except Exception as general_error:
+                        # 记录其他异常信息
+                        logger.error(f"General error processing Ollama response: {general_error}, line: {line}")
+
+            # 记录请求结束时间
+            end_time = time.time()
+            logger.info(f"Ollama stream request completed in {end_time - start_time} seconds")
+
+        except requests.RequestException as request_error:
+            # 记录请求异常信息
+            logger.error(f"Request error in Ollama stream: {request_error}")
+            yield "抱歉，我现在无法回答这个问题。"
         except Exception as e:
-            print(f"Ollama API error: {str(e)}")
+            # 记录其他异常信息
+            logger.error(f"Unexpected error in Ollama stream: {e}")
             yield "抱歉，我现在无法回答这个问题。"
 
     def clean_text(self, text):
